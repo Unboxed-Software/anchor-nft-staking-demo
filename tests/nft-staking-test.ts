@@ -65,7 +65,12 @@ describe("nft-staking-test", () => {
       mint: mint,
     }
 
-    await program.methods.stake().accounts(accounts).rpc()
+    await program.methods
+    .stake()
+    .accounts(accounts)
+    .rpc({
+      skipPreflight: true,
+    })
 
     const userInfoAccount = await program.account.userInfo.fetch(userInfo)
     const userStakeInfoAccount = await program.account.userStakeInfo.fetch(
