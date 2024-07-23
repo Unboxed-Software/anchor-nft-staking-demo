@@ -64,7 +64,7 @@ pub mod nft_staking_test {
 
     pub fn unstake(ctx: Context<Unstake>) -> Result<()> {
         // Proceed to transfer
-        let auth_bump = *ctx.bumps.get("staking_info").unwrap();
+        let auth_bump = ctx.bumps.staking_info;
         let seeds = &[
             b"stake_info".as_ref(),
             &ctx.accounts.initializer.key().to_bytes(),
@@ -105,11 +105,22 @@ pub mod nft_staking_test {
 #[derive(Accounts)]
 pub struct Stake<'info> {
     // Check account seed and init if required
-    #[account(init_if_needed, seeds=[b"user", initializer.key().as_ref()], bump, payer = initializer, space= std::mem::size_of::<UserInfo>() + 8 )]
-    pub user_info: Account<'info, UserInfo>,
+    #[account(
+        init_if_needed, 
+        seeds=[b"user", initializer.key().as_ref()], 
+        bump, 
+        payer = initializer, 
+        space = 8 + UserInfo::INIT_SPACE
+    )]
+    pub user_info: Box<Account<'info, UserInfo>>,
     // Check account seed and init if required
-    #[account(init_if_needed, seeds=[b"stake_info", initializer.key().as_ref(), mint.key().as_ref()], bump, payer = initializer, space= std::mem::size_of::<UserStakeInfo>() + 8 )]
-    pub staking_info: Account<'info, UserStakeInfo>,
+    #[account(
+        init_if_needed,
+        payer = initializer, 
+        seeds =[ b"stake_info", initializer.key().as_ref(), mint.key().as_ref()], 
+        bump, 
+        space = 8 + UserStakeInfo::INIT_SPACE)]
+    pub staking_info: Box<Account<'info, UserStakeInfo>>,
     // Check if initializer is signer, mut is required to reduce lamports (fees)
     #[account(mut)]
     pub initializer: Signer<'info>,
@@ -119,7 +130,7 @@ pub struct Stake<'info> {
         constraint = user_nft_account.owner.key() == initializer.key(),
         constraint = user_nft_account.amount == 1
     )]
-    pub user_nft_account: Account<'info, TokenAccount>,
+    pub user_nft_account: Box<Account<'info, TokenAccount>>,
     // Init if needed
     #[account(
         init_if_needed,
@@ -127,7 +138,7 @@ pub struct Stake<'info> {
         associated_token::mint = mint, // If init required, mint will be set to Mint
         associated_token::authority = staking_info // If init required, authority set to PDA
     )]
-    pub pda_nft_account: Account<'info, TokenAccount>,
+    pub pda_nft_account: Box<Account<'info, TokenAccount>>,
     // mint is required to create new account for PDA and for checking
     pub mint: Account<'info, Mint>,
     // Token Program required to call transfer instruction
@@ -197,6 +208,7 @@ pub struct Unstake<'info> {
 }
 
 #[account]
+#[derive(InitSpace)]
 pub struct UserInfo {
     is_initialized: bool,
     point_balance: u64,
@@ -204,6 +216,7 @@ pub struct UserInfo {
 }
 
 #[account]
+#[derive(InitSpace)]
 pub struct UserStakeInfo {
     staker: Pubkey,
     mint: Pubkey,
@@ -212,7 +225,7 @@ pub struct UserStakeInfo {
     stake_state: StakeState,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, InitSpace)]
 pub enum StakeState {
     Staked,
     Unstaked,
